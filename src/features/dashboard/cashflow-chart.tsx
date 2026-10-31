@@ -12,8 +12,8 @@ import {
 import { rupiah } from "@/lib/format";
 
 const config = {
-  income: { label: "Pemasukan", color: "var(--chart-2)" },
-  expense: { label: "Pengeluaran", color: "var(--chart-5)" },
+  income: { label: "Pemasukan", color: "oklch(0.696 0.17 162.48)" },
+  expense: { label: "Pengeluaran", color: "oklch(0.645 0.246 16.439)" },
 } satisfies ChartConfig;
 
 const compact = new Intl.NumberFormat("id-ID", { notation: "compact", maximumFractionDigits: 1 });

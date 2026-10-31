@@ -1,36 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Kostlyfe — Manajemen Kontrakan
 
-## Getting Started
+Aplikasi untuk mengelola kontrakan: tagihan bulanan, pembayaran (termasuk bayar di muka), perpanjangan waktu bayar, potongan renovasi, pengeluaran, kwitansi PDF, dan pengingat WhatsApp.
 
-First, run the development server:
+Stack: Next.js 16 (App Router, Cache Components) · Supabase (lokal via Docker) · Tailwind v4 · shadcn/ui.
+
+## Menjalankan
+
+Prasyarat: Docker Desktop berjalan, Node 22+, pnpm, [Supabase CLI](https://supabase.com/docs/guides/cli).
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
+supabase start                 # menjalankan Postgres, Auth, Storage, Studio di Docker
+supabase status -o env         # salin API_URL & PUBLISHABLE_KEY ke .env.local (lihat .env.example)
+pnpm dev                       # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Login data contoh: `owner@kostlyfe.test` / `password123` (dari `supabase/seed.sql`).
+Supabase Studio: http://127.0.0.1:54323
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Reset database + seed: `supabase db reset`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Cara kerja tagihan
 
-## Learn More
+- **Sewa** menghasilkan **tagihan per bulan** (`invoices`) mulai bulan awal sewa, otomatis dibuat s/d bulan berjalan.
+- **Pembayaran** dialokasikan ke tagihan tertua yang belum lunas (FIFO). Bayar 2/6/12 bulan sekaligus → tagihan bulan depan dibuat dan langsung lunas. Kelebihan disimpan sebagai saldo.
+- **Perpanjangan**: tagihan diberi jatuh tempo baru; selama belum lewat, statusnya *Diperpanjang* (bukan *Telat*).
+- **Renovasi** yang ditalangi penghuni dipotong dari tagihan, sekaligus atau dicicil N bulan (sisa pembulatan di bulan terakhir). Renovasi tanpa potongan dihitung sebagai pengeluaran pemilik.
+- Semua logika uang ada di fungsi Postgres (`supabase/migrations`) — `record_payment`, `reallocate_lease`, `apply_renovation`, view `invoice_balances` & `lease_summaries`.
 
-To learn more about Next.js, take a look at the following resources:
+## Test
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+supabase test db     # pgTAP: alokasi pembayaran, prepay, renovasi, perpanjangan, RLS
+pnpm vitest run      # util format, WhatsApp, billing
+pnpm lint && pnpm build
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Struktur
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+src/app/(app)/*          halaman: dashboard, tagihan, pembayaran, kontrakan, penghuni, sewa, renovasi, pengeluaran, pengaturan
+src/app/api/kwitansi     kwitansi PDF
+src/features/<domain>    server actions + form per domain
+src/lib                  supabase client, format, billing, whatsapp
+supabase/migrations      skema, RLS, view, fungsi
+supabase/seed.sql        data contoh
+```
