@@ -2,7 +2,10 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/database.types";
 
-const PUBLIC_PATHS = ["/login"];
+/** Halaman tamu: bisa dibuka tanpa login, dan user yang sudah login dialihkan ke dashboard. */
+const GUEST_PATHS = ["/login", "/register"];
+/** Bisa dibuka siapa saja (mis. callback konfirmasi email). */
+const OPEN_PATHS = ["/auth/"];
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -28,16 +31,17 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const isLoggedIn = Boolean(data?.claims);
   const { pathname } = request.nextUrl;
-  const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+  const isGuest = GUEST_PATHS.some((p) => pathname.startsWith(p));
+  const isOpen = OPEN_PATHS.some((p) => pathname.startsWith(p));
 
-  if (!isLoggedIn && !isPublic) {
+  if (!isLoggedIn && !isGuest && !isOpen) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.search = "";
     return NextResponse.redirect(url);
   }
 
-  if (isLoggedIn && (isPublic || pathname === "/")) {
+  if (isLoggedIn && (isGuest || pathname === "/")) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     url.search = "";
